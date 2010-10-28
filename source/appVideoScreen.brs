@@ -25,6 +25,7 @@ Function showVideoScreen(episode As Object)
     screen.SetMessagePort(port)
     print "printing episode"
     print episode
+    print episode.StreamUrls[0]
     screen.Show()
     screen.SetPositionNotificationPeriod(30)
     screen.SetContent(episode)
