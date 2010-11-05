@@ -9,51 +9,39 @@ Sub Main()
     'initialize theme attributes like titles, logos and overhang color
     initTheme()
 
-    'prepare the screen for display and get ready to begin
-    screen=preShowHomeScreen("HouseLive.gov Legislative Days", "")
-    if screen=invalid then
-        print "unexpected error in preShowHomeScreen"
-        return
-    end if
-
     'set to go, time to get started
-    'showHomeScreen(screen)
     print "getting vids and titles"
     m.videos = GetDaysFeed()
     m.titles = GetTitles(m.videos)
+    ShowHouseVideos()
 
-    print m.videos
-    print m.titles
-    
+End Sub
+
+Function ShowHouseVideos() As Integer
+    port = CreateObject("roMessagePort")
+    screen = CreateObject("roPosterScreen")
+    screen.SetListStyle("flat-category")
     screen.SetContentList(m.videos)
+    screen.SetMessagePort(port)
     screen.SetFocusedListItem(1)
     screen.show()
 
     while true
        msg = wait(0, screen.GetMessagePort())
        if type(msg) = "roPosterScreenEvent" then
-            print "showHomeScreen | msg = "; msg.GetMessage() " | index = "; msg.GetIndex()
             if msg.isListFocused() then
-                print "list focused | index = "; msg.GetIndex(); " | category = "; m.curCategory
             else if msg.isListItemSelected() then
-                print "list item selected | index = "; msg.GetIndex()
-                print m.videos[msg.GetIndex()]
-                showVideoScreen(m.videos[msg.GetIndex()])
-                print "after event call"
-                'kid = m.Categories.Kids[msg.GetIndex()]
-                'if kid.type = "special_category" then
-                '    displaySpecialCategoryScreen()
-                'else
-                '    displayCategoryPosterScreen(kid)
-                'end if
+                ShowDayClips(m.videos[msg.GetIndex()])
             else if msg.isScreenClosed() then
+                return -1
                 print "closed"
             end if
         end If
 
     end while
-    
-End Sub
+    return 0
+
+End Function
 
 
 '*************************************************************
@@ -83,9 +71,63 @@ Sub initTheme()
 
 End Sub
 
-                
+Function ShowDayClips(vid) As Integer
+   
+    clips = GetClipsFeed(vid)
+    screen = CreateObject("roPosterScreen")
+    port = CreateObject("roMessagePort")
+    screen.SetListStyle("flat-category")
+    screen.SetMessagePort(port)
+    screen.SetContentList(clips)
+    screen.SetFocusedListItem(1)
+    screen.show()
+
+    while true
+       msg = wait(0, screen.GetMessagePort())
+       if type(msg) = "roPosterScreenEvent" then
+            if msg.isListFocused() then
+            else if msg.isListItemSelected() then
+                showVideoScreen(clips[msg.GetIndex()])
+            else if msg.isScreenClosed() then
+                print "closed"
+                return -1
+            end if
+        end If
+
+    end while
+    return 0
+End Function
+
+Function GetClipItem(clip, vid)
+    events = ""
+    eve = clip.GetNamedElements("events")
+    print eve
+    if clip.events <> invalid then
+        for each e in clip.events.event
+            events = events + e.GetText()
+        next
+    end if
+
+    o = CreateObject("roAssociativeArray")
+    desc = vid.Description
+    o.Title = desc
+    o.Description = events
+    o.ShortDescriptionLine1 = "HouseLive.gov Feed"
+    o.ShortDescriptionLine2 = events
+    o.StreamUrls = vid.StreamUrls
+    o.StreamBitrates = [0]
+    o.StreamFormat = "mp4"
+    o.StreamQualities = ["SD"]
+    o.StreamStartTimeOffset = clip.offset.GetText().ToInt()
+    o.PlayStart = o.StreamStartTimeOffset
+    o.PlayDuration = clip.duration.GetText().ToInt()
+    o.Length = vid.Length
+
+    return o
+
+End Function
+
 Function GetVideoItem(vid)
-    print "getting video " + vid.GetName()
     o = CreateObject("roAssociativeArray")
     desc = vid.GetNamedElements("legislative-day")[0].GetText()
     o.Title = desc
@@ -96,10 +138,51 @@ Function GetVideoItem(vid)
     o.StreamBitrates = [0]
     o.StreamFormat = "mp4"
     o.StreamQualities = ["SD"]
+    o.Length = vid.duration.GetText().ToInt()
+    o.TimeStampId = vid.GetNamedElements("timestamp-id")[0].GetText()
 
     return o
 
 End Function
+
+Function GetClipsFeed(vid) As Dynamic
+
+    clips = CreateObject("roArray", 100, true)
+    timestamp_id = vid.TimeStampId
+    feed = CreateObject("roAssociativeArray")
+    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=1&apikey=sunlight9&sections=clips&order=legislative_day&sort=desc&timestamp_id=" + timestamp_id
+    feed.timer = CreateObject("roTimespan")
+    
+
+    http = NewHttp(feed.url)
+    response = http.GetToStringWithRetry()
+    xml = CreateObject("roXMLElement")
+    if not xml.Parse(response) then
+       print "Can't parse feed"
+       return invalid
+    endif
+
+    if xml.videos.clips = invalid then
+            print "Feed Empty or invalid"
+            return invalid
+    else
+        for count = xml.videos.video.clips.clip.Count()-1 to 0 step -1
+        'for each cl in xml.videos.video.clips.clip
+            print count
+            print type(xml.videos.video.clips.clip)
+            cl = xml.videos.video.clips.clip[count]
+            print type(cl)
+            o = GetClipItem(cl, vid)
+            clips.Push(o)
+        'next
+        end for
+
+    endif
+
+    return clips
+
+End Function
+
 
 Function GetDaysFeed() As Dynamic
     
@@ -116,24 +199,19 @@ Function GetDaysFeed() As Dynamic
        print "Can't parse feed"
        return invalid
     endif
-    print xml
 
-    if xml.results = invalid then
-        print "results invalid"
-        if xml.results.video then
+    if xml.videos = invalid then
+        if xml.video then
             print "has single vid"
-            videos.Push(GetVideoItem(xml.results.video))
+            videos.Push(GetVideoItem(xml.video))
         else
             print "Feed Empty or invalid"
             return invalid
         endif
     else
-        'use get children call here instead? START HERE
         for each vid in xml.videos.video
-            print vid.GetName()
             if vid.GetName() = "video" then
                 o = GetVideoItem(vid)
-                print o
                 videos.Push(o)
             endif
         next
