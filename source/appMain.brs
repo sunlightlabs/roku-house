@@ -20,10 +20,11 @@ End Sub
 Function ShowHouseVideos() As Integer
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
-    screen.SetListStyle("flat-category")
-    screen.SetContentList(m.videos)
     screen.SetMessagePort(port)
-    screen.SetFocusedListItem(1)
+    screen.SetListStyle("flat-category")
+    'screen.SetListNames(m.titles)
+    screen.SetContentList(m.videos)
+    screen.SetFocusedListItem(0)
     screen.show()
 
     while true
@@ -57,26 +58,39 @@ Sub initTheme()
     app = CreateObject("roAppManager")
     theme = CreateObject("roAssociativeArray")
 
-    theme.OverhangOffsetSD_X = "72"
-    theme.OverhangOffsetSD_Y = "31"
-    theme.OverhangSliceSD = "pkg:/images/Overhang_Background_SD.png"
-    theme.OverhangLogoSD  = "pkg:/images/Overhang_Logo_SD.png"
+    theme.OverhangOffsetSD_X = "0"
+    theme.OverhangOffsetSD_Y = "25"
+    theme.OverhangSliceSD = "pkg:/images/overhang_background_sd_720x110.jpg"
+    theme.OverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
 
-    theme.OverhangOffsetHD_X = "125"
-    theme.OverhangOffsetHD_Y = "35"
-    theme.OverhangSliceHD = "pkg:/images/Overhang_Background_HD.png"
-    theme.OverhangLogoHD  = "pkg:/images/Overhang_Logo_HD.png"
+    theme.OverhangOffsetHD_X = "0"
+    theme.OverhangOffsetHD_Y = "25"
+    theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
+    theme.OverhangLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
+
+    theme.BackgroundColor = "#FFFFFF"
 
     app.SetTheme(theme)
 
 End Sub
+
+Function ShowClipDetailScreen(clip)
+
+    screen = CreateObject("roSpringboardScreen")
+    port = CreateObject("roMessagePort")
+    screen.SetMessagePort(port)
+    o = CreateObject("roAssociativeArray")
+    o.ContentType = "episode"
+    
+
+End Function
 
 Function ShowDayClips(vid) As Integer
    
     clips = GetClipsFeed(vid)
     screen = CreateObject("roPosterScreen")
     port = CreateObject("roMessagePort")
-    screen.SetListStyle("flat-category")
+    screen.SetListStyle("flat-episodic")
     screen.SetMessagePort(port)
     screen.SetContentList(clips)
     screen.SetFocusedListItem(1)
@@ -101,19 +115,17 @@ End Function
 Function GetClipItem(clip, vid)
     events = ""
     eve = clip.GetNamedElements("events")
-    print eve
     if clip.events <> invalid then
         for each e in clip.events.event
-            events = events + e.GetText()
+            events = events + " " + e.GetText()
         next
     end if
-
     o = CreateObject("roAssociativeArray")
     desc = vid.Description
     o.Title = desc
     o.Description = events
     o.ShortDescriptionLine1 = "HouseLive.gov Feed"
-    o.ShortDescriptionLine2 = events
+'    o.ShortDescriptionLine2 = events
     o.StreamUrls = vid.StreamUrls
     o.StreamBitrates = [0]
     o.StreamFormat = "mp4"
@@ -122,6 +134,8 @@ Function GetClipItem(clip, vid)
     o.PlayStart = o.StreamStartTimeOffset
     o.PlayDuration = clip.duration.GetText().ToInt()
     o.Length = vid.Length
+    o.SDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
+    o.HDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
 
     return o
 
@@ -140,6 +154,8 @@ Function GetVideoItem(vid)
     o.StreamQualities = ["SD"]
     o.Length = vid.duration.GetText().ToInt()
     o.TimeStampId = vid.GetNamedElements("timestamp-id")[0].GetText()
+    o.SDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
+    o.HDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
 
     return o
 
@@ -151,7 +167,6 @@ Function GetClipsFeed(vid) As Dynamic
     timestamp_id = vid.TimeStampId
     feed = CreateObject("roAssociativeArray")
     feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=1&apikey=sunlight9&sections=clips&order=legislative_day&sort=desc&timestamp_id=" + timestamp_id
-    feed.timer = CreateObject("roTimespan")
     
 
     http = NewHttp(feed.url)
@@ -162,16 +177,18 @@ Function GetClipsFeed(vid) As Dynamic
        return invalid
     endif
 
+    
+    vid.SDPosterUrl = "pkg:/images/full_stream_poster_304x237.jpg"
+    vid.HDPosterUrl = "pkg:/images/full_stream_poster_304x237.jpg"
+    clips.push(vid)
+
     if xml.videos.clips = invalid then
             print "Feed Empty or invalid"
             return invalid
     else
         for count = xml.videos.video.clips.clip.Count()-1 to 0 step -1
         'for each cl in xml.videos.video.clips.clip
-            print count
-            print type(xml.videos.video.clips.clip)
             cl = xml.videos.video.clips.clip[count]
-            print type(cl)
             o = GetClipItem(cl, vid)
             clips.Push(o)
         'next

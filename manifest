@@ -1,9 +1,9 @@
-title=TED Talks
-subtitle=Video player example using category based XML feeds
-mm_icon_focus_hd=pkg:/images/MainMenu_Icon_CenterFocus_HD.png
-mm_icon_side_hd=pkg:/images/MainMenu_Icon_Side_HD.png
-mm_icon_focus_sd=pkg:/images/MainMenu_Icon_CenterFocus_SD.png
-mm_icon_side_sd=pkg:/images/MainMenu_Icon_Side_SD.png
+title=Sunlight Foundation Congressional Video Stream
+subtitle=Watch live and archived congressional video
+mm_icon_focus_hd=pkg:/images/main_menu_icon_hd_366x210.jpg
+mm_icon_side_hd=pkg:/images/main_menu_icon_side_hd_108x69.jpg
+mm_icon_focus_sd=pkg:/images/main_menu_icon_sd_248x140.jpg
+mm_icon_side_sd=pkg:/images/main_menu_icon_side_sd_80x46.jpg
 major_version=1
 minor_version=0
 build_version=00001
