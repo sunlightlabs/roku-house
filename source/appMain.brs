@@ -76,13 +76,32 @@ End Sub
 
 Function ShowClipDetailScreen(clip)
 
-    screen = CreateObject("roSpringboardScreen")
+    springboard = CreateObject("roSpringboardScreen")
     port = CreateObject("roMessagePort")
-    screen.SetMessagePort(port)
-    o = CreateObject("roAssociativeArray")
-    o.ContentType = "episode"
-    
 
+    springboard.AddButton(1, "Play just this clip")
+    springboard.AddButton(2, "Play stream from this point")
+    
+    springboard.SetMessagePort(port)
+    springboard.SetContent(clip)
+    springboard.Show()
+    while true
+        msg = wait(0, port)
+        if msg.isScreenClosed() then
+            return -1
+        
+        elseif msg.isButtonPressed() then
+            print "button pressed"
+            if msg.GetIndex() = 1 then
+                showVideoScreen(clip)
+            elseif msg.GetIndex() = 2 then
+                new_duration = clip.Length - clip.StreamStartTimeOffset
+                clip.PlayDuration = new_duration
+                showVideoScreen(clip)
+            end if
+        end if
+    end while
+    
 End Function
 
 Function ShowDayClips(vid) As Integer
@@ -94,14 +113,14 @@ Function ShowDayClips(vid) As Integer
     screen.SetMessagePort(port)
     screen.SetContentList(clips)
     screen.SetFocusedListItem(1)
-    screen.show()
+    screen.Show()
 
     while true
        msg = wait(0, screen.GetMessagePort())
        if type(msg) = "roPosterScreenEvent" then
             if msg.isListFocused() then
             else if msg.isListItemSelected() then
-                showVideoScreen(clips[msg.GetIndex()])
+                showClipDetailScreen(clips[msg.GetIndex()])
             else if msg.isScreenClosed() then
                 print "closed"
                 return -1
@@ -136,6 +155,7 @@ Function GetClipItem(clip, vid)
     o.Length = vid.Length
     o.SDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
     o.HDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
+    o.ContentType = "episode"
 
     return o
 
