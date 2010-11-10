@@ -1,7 +1,7 @@
 '********************************************************************
-'**  Video Player Example Application - Main
-'**  November 2009
-'**  Copyright (c) 2009 Roku Inc. All Rights Reserved.
+'**  Sunlight Foundation - Congressional Video Stream
+'**  November 20100
+'**  Copyright (c) 2010 Sunlight Foundation. All rights reserved.
 '********************************************************************
 
 Sub Main()
@@ -17,15 +17,47 @@ Sub Main()
 
 End Sub
 
+Sub showCounterCanvas()
+    background = {
+                    Color: "#000000",
+                    TargetRect: { x:0, y:0, w:1280, h:720 }
+                 }
+    text = { Text: "7 of 120",
+             TextAttrs: {Color: "#000000", Font: "Large"},
+             TargetRect: {x:1000, y:1000, w:500, h:50},
+            }
+    msgPort = CreateObject("roMessagePort")
+    canvas = CreateObject("roImageCanvas")
+    canvas.SetMessagePort(msgPort)
+    canvas.SetRequireAllImagesToDraw(false)
+'    canvas.SetLayer(0, background)
+    canvas.SetLayer(0, text)
+    print "counter canvas"
+    canvas.Show()
+    
+    While true
+        msg = wait( 0, msgPort)
+        if type(msg) = "roImageCanvasEvent" then
+            'if msg.isRemoteKeyPressed() Then
+             '   print "keypress"
+'                return
+            'End if
+        End if
+    End While
+End Sub
+
 Function ShowHouseVideos() As Integer
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
     screen.SetMessagePort(port)
     screen.SetListStyle("flat-category")
+    screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
     'screen.SetListNames(m.titles)
     screen.SetContentList(m.videos)
+    screen.SetBreadcrumbText("", "3 of 109")
     screen.SetFocusedListItem(0)
     screen.show()
+    'showCounterCanvas()
 
     while true
        msg = wait(0, screen.GetMessagePort())
@@ -60,15 +92,27 @@ Sub initTheme()
 
     theme.OverhangOffsetSD_X = "0"
     theme.OverhangOffsetSD_Y = "25"
+    'theme.GridScreenLogoOffsetSD_Y = "25"
     theme.OverhangSliceSD = "pkg:/images/overhang_background_sd_720x110.jpg"
+    'theme.GridScreenOverhangSliceSD = "pkg:/images/overhang_background_sd_720x110.jpg"
     theme.OverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
+    'theme.GridScreenLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
+    'theme.GridScreenOverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
 
     theme.OverhangOffsetHD_X = "0"
     theme.OverhangOffsetHD_Y = "25"
+    'theme.GridScreenLogoOffsetHD_Y = "25"
     theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
+    'theme.GridScreenOverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
     theme.OverhangLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
+    'theme.GridScreenLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
+    'theme.GridScreenOverhangLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
 
     theme.BackgroundColor = "#FFFFFF"
+    'theme.GridScreenBackgroundColor = "#FFFFFF"
+    'theme.CounterTextLeft = "#40868e"
+    'theme.CounterTextRight = "#40868e"
+    'theme.CounterSeparator = "#40868e"
 
     app.SetTheme(theme)
 
@@ -84,6 +128,9 @@ Function ShowClipDetailScreen(clip)
     
     springboard.SetMessagePort(port)
     springboard.SetContent(clip)
+    springboard.SetDescriptionStyle("generic")
+    springboard.SetStaticRatingEnabled(false)
+
     springboard.Show()
     while true
         msg = wait(0, port)
@@ -108,11 +155,17 @@ Function ShowDayClips(vid) As Integer
    
     clips = GetClipsFeed(vid)
     screen = CreateObject("roPosterScreen")
+    'screen = CreateObject("roGridScreen")
     port = CreateObject("roMessagePort")
-    screen.SetListStyle("flat-episodic")
+    screen.SetListStyle("flat-episodic-16x9")
     screen.SetMessagePort(port)
+    'screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
+    'screen.SetupLists(1)
+    'screen.SetContentList(0, clips)
+    'screen.SetDescriptionVisible(false)
+    'screen.SetDisplayMode("scale-to-fit")
     screen.SetContentList(clips)
-    screen.SetFocusedListItem(1)
+    'screen.SetFocusedListItem(0,0)
     screen.Show()
 
     while true
