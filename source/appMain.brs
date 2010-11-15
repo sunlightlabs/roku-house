@@ -17,44 +17,18 @@ Sub Main()
 
 End Sub
 
-Sub showCounterCanvas()
-    background = {
-                    Color: "#000000",
-                    TargetRect: { x:0, y:0, w:1280, h:720 }
-                 }
-    text = { Text: "7 of 120",
-             TextAttrs: {Color: "#000000", Font: "Large"},
-             TargetRect: {x:1000, y:1000, w:500, h:50},
-            }
-    msgPort = CreateObject("roMessagePort")
-    canvas = CreateObject("roImageCanvas")
-    canvas.SetMessagePort(msgPort)
-    canvas.SetRequireAllImagesToDraw(false)
-'    canvas.SetLayer(0, background)
-    canvas.SetLayer(0, text)
-    print "counter canvas"
-    canvas.Show()
-    
-    While true
-        msg = wait( 0, msgPort)
-        if type(msg) = "roImageCanvasEvent" then
-            'if msg.isRemoteKeyPressed() Then
-             '   print "keypress"
-'                return
-            'End if
-        End if
-    End While
-End Sub
-
 Function ShowHouseVideos() As Integer
+
+    video_count = str(m.videos.Count())
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
     screen.SetMessagePort(port)
     screen.SetListStyle("flat-category")
     screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
-    'screen.SetListNames(m.titles)
+    screen.SetAdDisplayMode("scale-to-fit")    
+'screen.SetListNames(m.titles)
     screen.SetContentList(m.videos)
-    screen.SetBreadcrumbText("", "3 of 109")
+    screen.SetBreadcrumbText("", "1 of "+ video_count)
     screen.SetFocusedListItem(0)
     screen.show()
     'showCounterCanvas()
@@ -62,13 +36,17 @@ Function ShowHouseVideos() As Integer
     while true
        msg = wait(0, screen.GetMessagePort())
        if type(msg) = "roPosterScreenEvent" then
-            if msg.isListFocused() then
+            if msg.isListItemFocused() then
+                screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
+                screen.show()
+
             else if msg.isListItemSelected() then
                 ShowDayClips(m.videos[msg.GetIndex()])
             else if msg.isScreenClosed() then
                 return -1
                 print "closed"
             end if
+           
         end If
 
     end while
@@ -102,12 +80,12 @@ Sub initTheme()
     theme.OverhangOffsetHD_X = "0"
     theme.OverhangOffsetHD_Y = "25"
     'theme.GridScreenLogoOffsetHD_Y = "25"
-    theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
+    theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.png"
     'theme.GridScreenOverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
-    theme.OverhangLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
+    theme.OverhangLogoHD  = ""
     'theme.GridScreenLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
     'theme.GridScreenOverhangLogoHD  = "pkg:/images/overhang_logo_hd_280x70.png"
-
+    theme.BreadcrumbTextRight = "#E8BB4B"
     theme.BackgroundColor = "#FFFFFF"
     'theme.GridScreenBackgroundColor = "#FFFFFF"
     'theme.CounterTextLeft = "#40868e"
@@ -122,7 +100,6 @@ Function ShowClipDetailScreen(clip)
 
     springboard = CreateObject("roSpringboardScreen")
     port = CreateObject("roMessagePort")
-
     springboard.AddButton(1, "Play just this clip")
     springboard.AddButton(2, "Play stream from this point")
     
@@ -130,7 +107,6 @@ Function ShowClipDetailScreen(clip)
     springboard.SetContent(clip)
     springboard.SetDescriptionStyle("generic")
     springboard.SetStaticRatingEnabled(false)
-
     springboard.Show()
     while true
         msg = wait(0, port)
@@ -153,25 +129,31 @@ End Function
 
 Function ShowDayClips(vid) As Integer
    
+    waitobj = ShowPleaseWait("Retrieving clips for this day", "")
     clips = GetClipsFeed(vid)
+    clip_count = str(clips.Count())
     screen = CreateObject("roPosterScreen")
     'screen = CreateObject("roGridScreen")
     port = CreateObject("roMessagePort")
     screen.SetListStyle("flat-episodic-16x9")
     screen.SetMessagePort(port)
-    'screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
     'screen.SetupLists(1)
     'screen.SetContentList(0, clips)
     'screen.SetDescriptionVisible(false)
     'screen.SetDisplayMode("scale-to-fit")
     screen.SetContentList(clips)
     'screen.SetFocusedListItem(0,0)
+    screen.SetBreadcrumbText("", "1 of " + clip_count)
+    waitobj = "forget it"
     screen.Show()
 
     while true
        msg = wait(0, screen.GetMessagePort())
        if type(msg) = "roPosterScreenEvent" then
-            if msg.isListFocused() then
+            if msg.isListItemFocused() then
+                screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + clip_count)
+                screen.show()
+
             else if msg.isListItemSelected() then
                 showClipDetailScreen(clips[msg.GetIndex()])
             else if msg.isScreenClosed() then
@@ -206,8 +188,8 @@ Function GetClipItem(clip, vid)
     o.PlayStart = o.StreamStartTimeOffset
     o.PlayDuration = clip.duration.GetText().ToInt()
     o.Length = vid.Length
-    o.SDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
-    o.HDPosterUrl = "pkg:/images/video_clip_poster_304x237.jpg"
+    o.SDPosterUrl = "pkg:/images/video_clip_poster_sd_185x94.jpg"
+    o.HDPosterUrl = "pkg:/images/video_clip_poster_hd_250x141.jpg"
     o.ContentType = "episode"
 
     return o
@@ -251,8 +233,8 @@ Function GetClipsFeed(vid) As Dynamic
     endif
 
     
-    vid.SDPosterUrl = "pkg:/images/full_stream_poster_304x237.jpg"
-    vid.HDPosterUrl = "pkg:/images/full_stream_poster_304x237.jpg"
+    vid.SDPosterUrl = "pkg:/images/full_stream_poster_sd_185x94.jpg"
+    vid.HDPosterUrl = "pkg:/images/full_stream_poster_hd_250x141.jpg"
     clips.push(vid)
 
     if xml.videos.clips = invalid then
