@@ -13,6 +13,22 @@
 '** error conditions so it's important to monitor these to
 '** understand what's going on, especially in the case of errors
 '***********************************************************  
+
+Function showVideoFailureMessage()
+    message = CreateObject("roMessageDialog")
+    message.SetText("We're sorry, the video you requested could not be loaded. We have recorded this event and will report it to the Clerk of the U.S. House of Representatives, the provider of this content.")
+    message.AddButton(1, "OK")
+    message.SetMessagePort(CreateObject("roMessagePort"))    
+    message.Show()
+    while true
+        dlmsg = wait(0, message.GetMessagePort())
+        if dlmsg.isButtonPressed()
+            return -1 
+        endif
+    end while
+    
+End Function
+
 Function showVideoScreen(episode As Object)
 
     if type(episode) <> "roAssociativeArray" then
@@ -42,6 +58,7 @@ Function showVideoScreen(episode As Object)
                 exit while
             elseif msg.isRequestFailed()
                 print "Video request failure: "; msg.GetIndex(); " " msg.GetData() 
+                showVideoFailureMessage()
             elseif msg.isStatusMessage()
                 print "Video status: "; msg.GetIndex(); " " msg.GetData() 
             elseif msg.isButtonPressed()
@@ -60,4 +77,5 @@ Function showVideoScreen(episode As Object)
         end if
     end while
 End Function
+
 

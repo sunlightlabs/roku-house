@@ -11,27 +11,27 @@ Sub Main()
 
     'set to go, time to get started
     print "getting vids and titles"
-    m.videos = GetDaysFeed()
-    m.titles = GetTitles(m.videos)
-    ShowHouseVideos()
+    
+    videos = GetDaysFeed("", false, CreateObject("roArray", 100, true))
+    titles = GetTitles(videos)
+    ShowHouseVideos(videos)
 
 End Sub
 
-Function ShowHouseVideos() As Integer
-
-    video_count = str(m.videos.Count())
+Function ShowHouseVideos(videos) As Integer
+    video_count = str(videos.Count())
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
     screen.SetMessagePort(port)
     screen.SetListStyle("flat-category")
     screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
     screen.SetAdDisplayMode("scale-to-fit")    
-'screen.SetListNames(m.titles)
-    screen.SetContentList(m.videos)
+    screen.SetContentList(videos)
     screen.SetBreadcrumbText("", "1 of "+ video_count)
     screen.SetFocusedListItem(0)
     screen.show()
-    'showCounterCanvas()
+
+    hasFailedOnce = false
 
     while true
        msg = wait(0, screen.GetMessagePort())
@@ -39,9 +39,22 @@ Function ShowHouseVideos() As Integer
             if msg.isListItemFocused() then
                 screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
                 screen.show()
+                if (video_count.ToInt() - msg.GetIndex() <= 4) and hasFailedOnce = false then
+                    last_day = videos[video_count.ToInt() - 1].Title
+                    temp_videos = GetDaysFeed(last_day, true, videos)
+                    videos = temp_videos
+                    video_count = str(videos.Count())
+                    if video_count.ToInt() = 7 then
+                        hasFailedOnce = true
+                        
+                    endif
+                    screen.SetContentList(videos)
+                    screen.SetFocusedListItem(msg.GetIndex())
+                    screen.show()
+                endif
 
             else if msg.isListItemSelected() then
-                ShowDayClips(m.videos[msg.GetIndex()])
+                ShowDayClips(videos[msg.GetIndex()])
             else if msg.isScreenClosed() then
                 return -1
                 print "closed"
@@ -59,7 +72,7 @@ End Function
 '** Set the configurable theme attributes for the application
 '** 
 '** Configure the custom overhang and Logo attributes
-'** Theme attributes affect the branding of the application
+'** Theme attributes affect the branding of the appication
 '** and are artwork, colors and offsets specific to the app
 '*************************************************************
 
@@ -211,7 +224,7 @@ Function GetVideoItem(vid)
     o.TimeStampId = vid.GetNamedElements("timestamp-id")[0].GetText()
     o.SDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
     o.HDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
-
+    o.ContentType = "episode"
     return o
 
 End Function
@@ -256,20 +269,24 @@ Function GetClipsFeed(vid) As Dynamic
 End Function
 
 
-Function GetDaysFeed() As Dynamic
+Function GetDaysFeed(start_day, append, videos) As Dynamic
     
     feed = CreateObject("roAssociativeArray")
     feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=7&apikey=sunlight9&sections=basic&order=legislative_day&sort=desc"
-    feed.timer = CreateObject("roTimespan")
-    
-    videos = CreateObject("roArray", 7, true)
+    if start_day <> "" then
+        print "start_day in get days feed: " + start_day
+        feed.url = feed.url + "&legislative_day%3C=" + start_day
+    endif 
 
+    print feed.url
     http = NewHttp(feed.url)
+    print http
     response = http.GetToStringWithRetry()
+'    print response
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
        print "Can't parse feed"
-       return invalid
+       return videos
     endif
 
     if xml.videos = invalid then
