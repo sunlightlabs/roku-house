@@ -9,7 +9,7 @@ Sub Main()
     'initialize theme attributes like titles, logos and overhang color
     initTheme()
     ShowChambers()
-    ShowHouseVideos(videos)
+    'ShowHouseVideos(videos)
 
 End Sub
 
@@ -27,19 +27,32 @@ Sub initTheme()
     theme = CreateObject("roAssociativeArray")
 
     theme.OverhangOffsetSD_X = "0"
-    theme.OverhangOffsetSD_Y = "25"
-    theme.OverhangSliceSD = "pkg:/images/overhang_background_sd_720x110.jpg"
-    theme.OverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
+    theme.OverhangOffsetSD_Y = "0"
+    theme.OverhangSliceSD = "pkg:/images/overhang_background_sd_720x83.jpg"
+   ' theme.OverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
     theme.OverhangOffsetHD_X = "0"
-    theme.OverhangOffsetHD_Y = "25"
-    theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.png"
-    theme.OverhangLogoHD  = ""
+    theme.OverhangOffsetHD_Y = "0"
+    theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
+   ' theme.OverhangLogoHD  = ""
     theme.BreadcrumbTextRight = "#E8BB4B"
     theme.BackgroundColor = "#FFFFFF"
     app.SetTheme(theme)
 
 End Sub
 
+Function showGenericErrorMessage(mess)
+    message = CreateObject("roMessageDialog")
+    message.SetText(mess)
+    message.AddButton(1, "OK")
+    message.SetMessagePort(CreateObject("roMessagePort"))    
+    message.Show()
+    while true
+        dlmsg = wait(0, message.GetMessagePort())
+        if dlmsg.isButtonPressed()
+            return -1
+        endif
+    end while
+End Function
 
 Function showSenateMessage()
     message = CreateObject("roMessageDialog")
@@ -75,20 +88,25 @@ Function ShowChambers()
     screen.Show()
     while true    
         msg = wait(0, screen.GetMessagePort())
-        if msg.isListItemSelected() then
-            if msg.GetIndex() = 0 then
-                videos = GetDaysFeed("", false, CreateObject("roArray", 100, true))
-                titles = GetTitles(videos)
-                ShowHouseVideos(videos)
+        if type(msg) = "roPosterScreenEvent" then
+            if msg.isListItemSelected() then
+                if msg.GetIndex() = 0 then
+                    videos = GetDaysFeed("", false, CreateObject("roArray", 100, true))
+                    if videos.Count() > 0 then
+                        ShowHouseVideos(videos)
+                    endif
 
-            elseif msg.GetIndex() = 1 then
-               ShowSenateMessage()
+                elseif msg.GetIndex() = 1 then
+                   ShowSenateMessage()
+                end if
             end if
         end if
     end while
 End Function
 
 Function ShowHouseVideos(videos) As Integer
+    
+    waitobj = ShowPleaseWait("Retrieving legislative days", "")
     video_count = str(videos.Count())
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
@@ -99,6 +117,7 @@ Function ShowHouseVideos(videos) As Integer
     screen.SetContentList(videos)
     screen.SetBreadcrumbText("", "1 of "+ video_count)
     screen.SetFocusedListItem(0)
+    waitobj = "forgetit"
     screen.show()
 
     hasFailedOnce = false
@@ -138,7 +157,7 @@ Function ShowHouseVideos(videos) As Integer
 End Function
 
 
-
+    
 Function ShowClipDetailScreen(clip)
 
     springboard = CreateObject("roSpringboardScreen")
@@ -148,22 +167,26 @@ Function ShowClipDetailScreen(clip)
     
     springboard.SetMessagePort(port)
     springboard.SetContent(clip)
-    springboard.SetDescriptionStyle("generic")
+    springboard.SetDescriptionStyle("video")
     springboard.SetStaticRatingEnabled(false)
+    springboard.SetPosterStyle("rounded-rect-16x9-generic")
     springboard.Show()
+
     while true
         msg = wait(0, port)
-        if msg.isScreenClosed() then
-            return -1
+        if type(msg) = "roSpringboardScreenEvent" then
+            if msg.isScreenClosed() then
+                return -1
         
-        elseif msg.isButtonPressed() then
-            print "button pressed"
-            if msg.GetIndex() = 1 then
-                showVideoScreen(clip)
-            elseif msg.GetIndex() = 2 then
-                new_duration = clip.Length - clip.StreamStartTimeOffset
-                clip.PlayDuration = new_duration
-                showVideoScreen(clip)
+            elseif msg.isButtonPressed() then
+                print "button pressed"
+                if msg.GetIndex() = 1 then
+                    showVideoScreen(clip)
+                elseif msg.GetIndex() = 2 then
+                    new_duration = clip.VidLength - clip.StreamStartTimeOffset
+                    clip.PlayDuration = new_duration
+                    showVideoScreen(clip)
+                end if
             end if
         end if
     end while
@@ -203,6 +226,26 @@ Function ShowDayClips(vid) As Integer
     return 0
 End Function
 
+Function AddActors(clip)
+    l_names = clip.GetNamedElements("legislator-names")
+    count = 0
+    actors = CreateObject("roArray", 3, False)
+    if l_names.Count() > 0 then
+        for each a in l_names.GetChildElements()
+            if count < 3 then
+                actors.Push(a.GetText())
+                count = count + 1
+            end if
+        next
+    end if
+    if count > 0 then
+        return actors
+    else 
+        return -1
+    endif
+End Function
+
+
 Function GetClipItem(clip, vid)
     events = ""
     eve = clip.GetNamedElements("events")
@@ -224,11 +267,17 @@ Function GetClipItem(clip, vid)
     o.StreamStartTimeOffset = clip.offset.GetText().ToInt()
     o.PlayStart = o.StreamStartTimeOffset
     o.PlayDuration = clip.duration.GetText().ToInt()
-    o.Length = vid.Length
+    o.VidLength = vid.Length
     o.SDPosterUrl = "pkg:/images/video_clip_poster_sd_185x94.jpg"
     o.HDPosterUrl = "pkg:/images/video_clip_poster_hd_250x141.jpg"
     o.ContentType = "episode"
-
+    
+    actors = AddActors(clip)
+    if type(actors) = "roArray" then
+        o.Actors = actors
+    end if
+    
+    
     return o
 
 End Function
@@ -241,26 +290,49 @@ Function GetVideoItem(vid)
     o.ShortDescriptionLine1 = "HouseLive.gov Feed"
     o.ShortDescriptionLine2 = desc
     print "type vid" + type(vid)
+    clip_urls = vid.GetNamedElements("clip-urls")
+    print type(clip_urls)
+    print clip_urls.Count()
+    if clip_urls.Count() > 0 then
+        if clip_urls[0].GetNamedElements("mp4").Count() > 0 then
+            mp4_url = clip_urls[0].GetNamedElements("mp4")[0].GetText()
+'        else if clip_urls[0].GetNamedElements("wmv").Count() > 0 then
+ '           wmv_url = clip_urls[0].GetNamedElements("wmv")[0].GetText()
+        else
+            return -1
+        end if
+    else
+        return -1
+    end if
     mp4_url = vid.GetNamedElements("clip-urls")[0].mp4.GetText()
     wmv_url = vid.GetNamedElements("clip-urls")[0].wmv.GetText()
-    'if wmv_url <> "" then
-    '    o.StreamUrls = [wmv_url]
+  '  if wmv_url <> "" then
+   '     o.StreamUrls = [wmv_url]
     '    o.StreamFormat = "wmv"
-    '    print "wmv url"
-    '    print wmv_url
+     '   print "wmv url"
+      '  print wmv_url
     'else 
-    o.StreamUrls = [mp4_url]
-    o.StreamFormat = "mp4"
-    print "mp4 url"
-    print mp4_url
-    'endif
+    if mp4_url <> "" then
+        o.StreamUrls = [mp4_url]
+        o.StreamFormat = "mp4"
+        print "mp4 url"
+        print mp4_url
+    else
+        return -1
+    endif
     o.StreamBitrates = [0]
     o.StreamQualities = ["SD"]
     o.Length = vid.duration.GetText().ToInt()
-    o.TimeStampId = vid.GetNamedElements("timestamp-id")[0].GetText()
+    o.VideoId = vid.GetNamedElements("video-id")[0].GetText()
+    o.StreamStartTimeOffset = 0
     o.SDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
     o.HDPosterUrl = "pkg:/images/legislative_day_poster_304x237.jpg"
     o.ContentType = "episode"
+    
+    actors = AddActors(vid)
+    if type(actors) = "roArray" then
+        o.Actors = actors
+    end if
     return o
 
 End Function
@@ -268,9 +340,9 @@ End Function
 Function GetClipsFeed(vid) As Dynamic
 
     clips = CreateObject("roArray", 100, true)
-    timestamp_id = vid.TimeStampId
+    video_id = vid.VideoId
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=1&apikey="+ GetKey() + "&sections=clips&order=legislative_day&sort=desc&timestamp_id=" + timestamp_id
+    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=1&apikey="+ GetKey() + "&sections=clips&video_id=" + video_id
     
     print feed.url
     http = NewHttp(feed.url)
@@ -288,11 +360,12 @@ Function GetClipsFeed(vid) As Dynamic
 
     if xml.videos.clips = invalid then
             print "Feed Empty or invalid"
-            return invalid
+            ShowGenericErrorMessage("We're sorry; an error has occurred. Please try again later.") 
+            return clips
     else
-        for count = xml.videos.video.clips.clip.Count()-1 to 0 step -1
+        for each cl in xml.videos.video.clips.clip
         'for each cl in xml.videos.video.clips.clip
-            cl = xml.videos.video.clips.clip[count]
+            'cl = xml.videos.video.clips.clip[count]
             o = GetClipItem(cl, vid)
             clips.Push(o)
         'next
@@ -308,7 +381,7 @@ End Function
 Function GetDaysFeed(start_day, append, videos) As Dynamic
     
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=7&apikey=" + GetKey() + "&sections=basic&order=legislative_day&sort=desc"
+    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=house&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.mp4__exists=true"
     if start_day <> "" then
         print "start_day in get days feed: " + start_day
         feed.url = feed.url + "&legislative_day__lt=" + start_day
@@ -322,6 +395,7 @@ Function GetDaysFeed(start_day, append, videos) As Dynamic
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
        print "Can't parse feed"
+       ShowGenericErrorMessage("We're sorry; an error has occurred. Please try again later.") 
        return videos
     endif
 
@@ -337,7 +411,9 @@ Function GetDaysFeed(start_day, append, videos) As Dynamic
         for each vid in xml.videos.video
             if vid.GetName() = "video" then
                 o = GetVideoItem(vid)
-                videos.Push(o)
+                if type(o) = "roAssociativeArray" then
+                    videos.Push(o)
+                end if
             endif
         next
 
