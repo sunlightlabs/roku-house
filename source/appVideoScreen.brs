@@ -29,7 +29,32 @@ Function showVideoFailureMessage()
     
 End Function
 
-Function showVideoScreen(episode As Object)
+Function analytics(hit_type, video_id)
+    
+    utmac = getGAKey()
+    utmhn = "roku.sunlightfoundation.com"
+    utmn = itostr(rnd(9999999999))
+    cookie = itostr(rnd(99999999))
+    random_num = itostr(rnd(2147483647))
+    todayobj = CreateObject("roDateTime")
+    today = itostr(todayobj.getHours() * 60 * 60) + itostr(todayobj.getMinutes() * 60)
+    referer = "http://rokudevice.com"
+    device_info = CreateObject("roDeviceInfo")
+    uservar = "device_id_" + device_info.GetDeviceUniqueId()
+    uservar2 = "dt_" + device_info.getdisplayType()  
+    uservar3 = "vid_" + video_id
+    utmp = "/roku/" + hit_type + "/" + uservar3
+
+    url = "http://www.google-analytics.com/__utm.gif?utmwv=1&utmn="+utmn+"&utmsr=-&utmsc=-&utmul=-&utmje=0&utmfl=-&utmdt=-&utmhn="+utmhn+"&utmr="+referer+"&utmp="+utmp+"&utmac="+utmac+"&utmcc=__utma%3D"+cookie+"."+random_num+"."+today+"."+today+"."+today+".2%3B%2B__utmb%3D"+cookie+"%3B%2B__utmc%3D"+cookie+"%3B%2B__utmz%3D"+cookie+"."+today+".2.2.utmccn%3D(direct)%7Cutmcsr%3D(direct)%7Cutmcmd%3D(none)%3B%2B__utmv%3D"+cookie+"."+uservar+"%3B"+"."+uservar2+"%3B."+uservar3
+
+    print "posting to " + url 
+    http = NewHttp(url)
+    response = http.GetToStringWithRetry()
+
+    
+End Function
+
+Function showVideoScreen(episode As Object, videoId)
 
     if type(episode) <> "roAssociativeArray" then
         print "invalid data passed to showVideoScreen"
@@ -42,9 +67,11 @@ Function showVideoScreen(episode As Object)
     print "printing episode"
     print episode
     print episode.StreamUrls[0]
-    screen.Show()
+'   screen.Show()
     screen.SetPositionNotificationPeriod(30)
     screen.SetContent(episode)
+    analytics("videostart", videoId)
+   ' sleep(3000)
     screen.Show()
     'Uncomment his line to dump the contents of the episode to be played
     'PrintAA(episode)
@@ -59,6 +86,8 @@ Function showVideoScreen(episode As Object)
             elseif msg.isRequestFailed()
                 print "Video request failure: "; msg.GetIndex(); " " msg.GetData() 
                 showVideoFailureMessage()
+                print msg.getMessage()
+                analytics("videofail", videoId)
             elseif msg.isStatusMessage()
                 print "Video status: "; msg.GetIndex(); " " msg.GetData() 
             elseif msg.isButtonPressed()
