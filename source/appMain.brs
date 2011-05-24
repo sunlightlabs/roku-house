@@ -56,7 +56,7 @@ End Function
 
 Function showSenateMessage()
     message = CreateObject("roMessageDialog")
-    message.SetText("We're sorry but the U.S. Senate does not offer a live video stream at this time. Please consider writing your senator to request a video feed.")
+    message.SetText("We're sorry but the U.S. Senate does not offer a live video stream in supportable format at this time. Please consider writing your senator to request an h.264 video feed.")
     message.AddButton(1, "OK")
     message.SetMessagePort(CreateObject("roMessagePort"))    
     message.Show()
@@ -166,9 +166,12 @@ Function ShowClipDetailScreen(clip, videoId)
 
     springboard = CreateObject("roSpringboardScreen")
     port = CreateObject("roMessagePort")
-    springboard.AddButton(1, "Play just this clip")
-    springboard.AddButton(2, "Play stream from this point")
-    
+    if clip.PlayDuration <> invalid then
+        springboard.AddButton(1, "Play stream from this point") 
+        springboard.AddButton(2, "Play just this clip")
+    else
+        springboard.AddButton(1, "Play this day")
+    endif
     springboard.SetMessagePort(port)
     springboard.SetContent(clip)
     springboard.SetDescriptionStyle("video")
@@ -395,7 +398,7 @@ End Function
 Function GetDaysFeed(start_day, append, videos) As Dynamic
     
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=house&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc"
+    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=house&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.hls__exists=true"
     if start_day <> "" then
         print "start_day in get days feed: " + start_day
         feed.url = feed.url + "&legislative_day__lt=" + start_day 
