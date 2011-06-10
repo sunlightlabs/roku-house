@@ -29,11 +29,9 @@ Sub initTheme()
     theme.OverhangOffsetSD_X = "0"
     theme.OverhangOffsetSD_Y = "0"
     theme.OverhangSliceSD = "pkg:/images/overhang_background_sd_720x83.jpg"
-   ' theme.OverhangLogoSD  = "pkg:/images/overhang_logo_sd_160x40.png"
     theme.OverhangOffsetHD_X = "0"
     theme.OverhangOffsetHD_Y = "0"
     theme.OverhangSliceHD = "pkg:/images/overhang_background_hd_1281x165.jpg"
-   ' theme.OverhangLogoHD  = ""
     theme.BreadcrumbTextRight = "#E8BB4B"
     theme.BackgroundColor = "#FFFFFF"
     app.SetTheme(theme)
@@ -82,7 +80,7 @@ Function ShowChambers()
     port = CreateObject("roMessagePort")
     screen.SetMessagePort(port)
     screen.SetListStyle("arced-landscape")
-    screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
+    screen.SetAdUrl("http://sunlightlabs.s3.amazonaws.com/HouseLiveCredit_sd_540X60.jpg", "http://sunlightlabs.s3.amazonaws.com/HouseLiveCredit_728X90.jpg")
     screen.SetAdDisplayMode("scale-to-fit")   
     screen.SetContentList(chambers)
     screen.Show()
@@ -110,7 +108,7 @@ Function ShowHouseVideos() As Integer
     screen = CreateObject("roPosterScreen")
     screen.SetMessagePort(port)
     screen.SetListStyle("flat-category")
-    screen.SetAdUrl("http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/banner_ad_sd_540x60.jpg", "http://assets.sunlightfoundation.com.s3.amazonaws.com/roku/sunlight2_728x90_roku.jpg")
+    screen.SetAdUrl("http://sunlightlabs.s3.amazonaws.com/HouseLiveCredit_sd_540X60.jpg", "http://sunlightlabs.s3.amazonaws.com/HouseLiveCredit_728X90.jpg")
     screen.SetAdDisplayMode("scale-to-fit")    
     screen.SetContentList(videos)
     screen.SetBreadcrumbText("", "1 of "+ video_count)
