@@ -74,6 +74,11 @@ Function ShowChambers()
     {   Title: "Senate Stream",
         HDPosterUrl: "pkg:/images/category_poster_304x237_senate.jpg",
         SDPosterUrl: "pkg:/images/category_poster_304x237_senate.jpg"
+    },
+    {
+        Title: "Search",
+        HDPosterUrl: "pkg:/images/category_poster_304x237_house.jpg",
+        SDPosterUrl: "pkg:/images/category_poster_304x237_house.jpg"
     }]
 
     screen = CreateObject("roPosterScreen")
@@ -93,11 +98,164 @@ Function ShowChambers()
 
                 elseif msg.GetIndex() = 1 then
                    ShowSenateMessage()
+
+                elseif msg.GetIndex() = 2 then
+                    ShowSearch()
                 end if
             end if
         end if
     end while
 End Function
+
+Function GetSearchResults(query) 
+    feed = CreateObject("roAssociativeArray")
+    feed.url = "http://api.realtimecongress.org/api/v1/search/clips.xml?apikey=" + GetKey() + "&query=" + query + "&sections=video_id,events,offset,duration,clip_urls,pubdate,legislative_day&highlight=true&order=pubdate&sort=desc"
+    print feed.url
+    http = NewHttp(feed.url)
+    response = http.GetToStringWithRetry()
+    xml = CreateObject("roXMLElement")
+    if not xml.Parse(response) then
+       print "Can't parse feed"
+       return invalid
+    endif
+    
+    vids = CreateObject("roList")
+    for each clip in xml.clips.clip
+        o = { }
+'need to figure out how to show why this is in search results
+'        desc = vid.Description   
+        search_caption = clip.search.highlight.captions
+        search_event = clip.search.highlight.events
+
+        print "type " + type(search_caption.caption)
+        print "type " + type(search_event.event)
+        
+        print "count event " + str(search_event.event.Count())
+        print "count caption" + str(search_caption.caption.Count())
+
+        if search_caption.caption.Count() > 0 and search_event.event.Count() > 0
+            desc = "This clip contains your search term(s) in both the floor update and closed captioning"
+        else if search_caption.caption.Count() > 0
+            desc = "The following captions in this clip contain your search term(s):" + search_caption.caption[0].GetText()
+        else
+            desc = "The floor update for this clip contains your search term(s):" + search_event.event[0].GetText()
+        end if
+        
+        o.Title = clip.legislative_day.GetText()
+        o.Description = desc
+        o.ShortDescriptionLine1 = "HouseLive.gov - " + o.Title
+'        o.ShortDescriptionLine2 = desc
+        o.ParagraphText = desc
+        o.StreamUrls = [clip.clip_urls.hls.GetText()]
+        o.StreamBitrates = [0]
+        o.StreamFormat = "hls"
+        o.StreamQualities = ["SD"]
+        o.StreamStartTimeOffset = clip.offset.GetText().ToInt()
+        o.PlayStart = o.StreamStartTimeOffset
+        o.PlayDuration = clip.duration.GetText().ToInt()
+'        o.VidLength = vid.Length
+        o.SDPosterUrl = "pkg:/images/video_clip_poster_sd_185x94.jpg"
+        o.HDPosterUrl = "pkg:/images/video_clip_poster_hd_250x141.jpg"
+        o.ContentType = "episode"
+        o.MinBandwidth = 60
+        o.id = clip.video_id.GetText()
+
+        vids.Push(o)
+
+    end for
+    print "has " + str(vids.Count()) + "vids"
+    port = CreateObject("roMessagePort")
+    screen = CreateObject("roPosterScreen")
+    screen.SetMessagePort(port)
+    screen.SetListStyle("flat-episodic-16x9")
+    screen.SetContentList(vids)
+    screen.Show()
+
+    while true
+       msg = wait(0, screen.GetMessagePort())
+       if type(msg) = "roPosterScreenEvent" then
+            'if msg.isListItemFocused() then
+             '   screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
+              '  screen.show()
+             '   if (video_count.ToInt() - msg.GetIndex() <= 8) and hasFailedOnce = false then
+              '      last_day = videos[video_count.ToInt() - 1].Title
+               '     temp_videos = GetDaysFeed(last_day, true, videos)
+                '    if temp_videos = invalid then
+                 '       return -1
+                  '  endif
+                  '  videos = temp_videos
+                   ' old_video_count = video_count
+            '        video_count = str(videos.Count())
+             '       if video_count = old_video_count then
+              '          hasFailedOnce = true
+               '     else    
+                '        screen.SetContentList(videos)
+                 '       screen.SetFocusedListItem(msg.GetIndex())
+                  '  endif
+                    
+                   ' screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
+                    'screen.show()
+'                endif
+
+            if msg.isListItemSelected() then
+                ShowClipDetailScreen(vids[msg.GetIndex()], vids[msg.GetIndex()].id)
+            else if msg.isScreenClosed() then
+                return -1
+                print "closed"
+            end if
+           
+        end If
+
+
+    end while
+
+End Function
+
+Function ShowSearch() As Integer
+    port = CreateObject("roMessagePort")
+    screen = CreateObject("roSearchScreen")
+    screen.SetMessagePort(port)
+    screen.SetSearchButtonText("Search")
+    screen.Show()
+
+    history = CreateObject("roRegistrySection", "searches")
+    recent_searches = history.GetKeyList()
+
+    if recent_searches.Count() <> 0
+        'show recent searches on screen
+        screen.SetSearchTerms(recent_searches)
+    else 
+        recent_searches = CreateObject("roList")
+    end if
+
+    print "waiting for search screen message"
+
+    done = false
+    while done = false
+        msg = wait(0, screen.GetMessagePort())
+
+        if type(msg) = "roSearchScreenEvent"
+
+            if msg.isScreenClosed() 
+                done = true
+                return -1
+
+            else if msg.isFullResult()
+                query = msg.GetMessage()
+                recent_searches.Push(query)
+                history.Write(query, query)
+                history.Flush()
+                GetSearchResults(query)
+
+            else if msg.isCleared()
+                for each key in recent_searches 
+                    history.Delete(key)
+                end for
+            end if
+        end if
+    end while
+
+End Function 
 
 Function ShowHouseVideos() As Integer
     
