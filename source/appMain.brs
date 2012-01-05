@@ -107,19 +107,24 @@ Function ShowChambers()
     end while
 End Function
 
-Function GetSearchResults(query) 
+Function APICall(query) as Dynamic
+
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/search/clips.xml?apikey=" + GetKey() + "&query=" + query + "&sections=video_id,events,offset,duration,clip_urls,pubdate,legislative_day&highlight=true&order=pubdate&sort=desc"
+    feed.url = query
     print feed.url
     http = NewHttp(feed.url)
     response = http.GetToStringWithRetry()
+    return response
+
+End Function
+
+Function ParseSearchResults(response, vids) as Dynamic
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
        print "Can't parse feed"
-       return invalid
+       return vids
     endif
     
-    vids = CreateObject("roList")
     for each clip in xml.clips.clip
         o = { }
 'need to figure out how to show why this is in search results
@@ -127,25 +132,22 @@ Function GetSearchResults(query)
         search_caption = clip.search.highlight.captions
         search_event = clip.search.highlight.events
 
-        print "type " + type(search_caption.caption)
-        print "type " + type(search_event.event)
-        
-        print "count event " + str(search_event.event.Count())
-        print "count caption" + str(search_caption.caption.Count())
-
         if search_caption.caption.Count() > 0 and search_event.event.Count() > 0
-            desc = "This clip contains your search term(s) in both the floor update and closed captioning"
+            title = "The captions and clip description both contain your search term(s):"
+            desc = clip.events.event[0].GetText()
         else if search_caption.caption.Count() > 0
-            desc = "The following captions in this clip contain your search term(s):" + search_caption.caption[0].GetText()
+            title = "The captions in this clip contain your search term(s):" 
+            desc = search_caption.caption[0].GetText()
         else
-            desc = "The floor update for this clip contains your search term(s):" + search_event.event[0].GetText()
+            title = "The description of this clip contains your search term(s):" 
+            desc = clip.events.event[0].GetText()
         end if
         
         o.Title = clip.legislative_day.GetText()
         o.Description = desc
         o.ShortDescriptionLine1 = "HouseLive.gov - " + o.Title
-'        o.ShortDescriptionLine2 = desc
-        o.ParagraphText = desc
+        o.ShortDescriptionLine2 = title
+ '       o.ParagraphText = desc
         o.StreamUrls = [clip.clip_urls.hls.GetText()]
         o.StreamBitrates = [0]
         o.StreamFormat = "hls"
@@ -164,40 +166,61 @@ Function GetSearchResults(query)
 
     end for
     print "has " + str(vids.Count()) + "vids"
+    return vids
+End Function
+
+Function GetSearchResults(query) 
+    
+    waitobj = ShowPleaseWait("Retrieving Search Results", "")
+    per_page = 50
+    page = 1
+    query = "http://api.realtimecongress.org/api/v1/search/clips.xml?apikey=" + GetKey() + "&query=" + HttpEncode(query) + "&sections=video_id,events,offset,duration,clip_urls,pubdate,legislative_day&highlight=true&order=pubdate&sort=desc&highlight_tags=**,**&per_page=50"
+    response = APICall(query)
+    vids = CreateObject("roList")
+    vids = ParseSearchResults(response, vids)
+    if vids = invalid
+        print "can't parse feed"
+        return -1
+    end if
+    video_count = str(vids.Count())
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
     screen.SetMessagePort(port)
     screen.SetListStyle("flat-episodic-16x9")
     screen.SetContentList(vids)
+    screen.SetBreadcrumbText("", "1 of " + video_count)
+    waitobj = "forget it"
     screen.Show()
+    hasFailedOnce = false
 
     while true
        msg = wait(0, screen.GetMessagePort())
        if type(msg) = "roPosterScreenEvent" then
-            'if msg.isListItemFocused() then
-             '   screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
-              '  screen.show()
-             '   if (video_count.ToInt() - msg.GetIndex() <= 8) and hasFailedOnce = false then
-              '      last_day = videos[video_count.ToInt() - 1].Title
-               '     temp_videos = GetDaysFeed(last_day, true, videos)
-                '    if temp_videos = invalid then
-                 '       return -1
-                  '  endif
-                  '  videos = temp_videos
-                   ' old_video_count = video_count
-            '        video_count = str(videos.Count())
-             '       if video_count = old_video_count then
-              '          hasFailedOnce = true
-               '     else    
-                '        screen.SetContentList(videos)
-                 '       screen.SetFocusedListItem(msg.GetIndex())
-                  '  endif
+            if msg.isListItemFocused() then
+                screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
+                screen.show()
+                if (video_count.ToInt() - msg.GetIndex() <= 8) and hasFailedOnce = false then
+                    last_day = vids[video_count.ToInt() - 1].Title
+                    temp_videos = ParseSearchResults(APIcall(query + "&page=" + (page + 1).toStr()), vids)
+                    page = page + 1
+                    if temp_videos = invalid then
+                        return -1
+                    endif
+                    vids = temp_videos
+                    old_video_count = video_count
+                    video_count = str(vids.Count())
+                    if video_count = old_video_count then
+                        hasFailedOnce = true
+                    else    
+                        screen.SetContentList(vids)
+                        screen.SetFocusedListItem(msg.GetIndex())
+                    endif
                     
-                   ' screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
-                    'screen.show()
-'                endif
+                    screen.SetBreadcrumbText("", str(msg.GetIndex() + 1) + " of " + video_count)
+                    screen.show()
+                endif
 
-            if msg.isListItemSelected() then
+            else if msg.isListItemSelected() then
                 ShowClipDetailScreen(vids[msg.GetIndex()], vids[msg.GetIndex()].id)
             else if msg.isScreenClosed() then
                 return -1
@@ -330,7 +353,7 @@ Function ShowClipDetailScreen(clip, videoId)
     endif
     springboard.SetMessagePort(port)
     springboard.SetContent(clip)
-    springboard.SetDescriptionStyle("video")
+    springboard.SetDescriptionStyle("generic")
     springboard.SetStaticRatingEnabled(false)
     springboard.SetPosterStyle("rounded-rect-16x9-generic")
     springboard.Show()
@@ -356,7 +379,7 @@ Function ShowClipDetailScreen(clip, videoId)
    '                    new_duration = clip.Length - clip.StreamStartTimeOffset
     '                endif
      '               clip.PlayDuration = new_duration
-                    clip.PlayDuration = invalid
+                   ' clip.PlayDuration = invalid
                     showVideoScreen(clip, videoId)
                 end if
             end if
