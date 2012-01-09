@@ -35,7 +35,7 @@ End Function
 '******************************************************
 Sub Sort(A as Object, key=invalid as dynamic)
 
-    if type(A)<>"roArray" then return
+    if type(A)<>"roArray" and type(A) <> "roList"  then return
 
     if (key=invalid) then
         for i = 1 to A.Count()-1
@@ -55,6 +55,42 @@ Sub Sort(A as Object, key=invalid as dynamic)
             value = A[i]
             j = i-1
             while j>= 0 and key(A[j]) > valuekey
+                A[j + 1] = A[j]
+                j = j-1
+            end while
+            A[j+1] = value
+        next
+
+    end if
+
+End Sub
+
+'******************************************************
+'Reverse Insertion Sort
+'Will sort an array directly, or use a key function
+'******************************************************
+Sub ReverseSort(A as Object, key=invalid as dynamic)
+
+    if type(A)<>"roArray" and type(A) <> "roList" then return
+
+    if (key=invalid) then
+        for i = 1 to A.Count()-1
+            value = A[i]
+            j = i-1
+            while j>= 0 and A[j] < value
+                A[j + 1] = A[j]
+                j = j-1
+            end while
+            A[j+1] = value
+        next
+
+    else
+        if type(key)<>"Function" then return
+        for i = 1 to A.Count()-1
+            valuekey = key(A[i])
+            value = A[i]
+            j = i-1
+            while j>= 0 and key(A[j]) < valuekey
                 A[j + 1] = A[j]
                 j = j-1
             end while

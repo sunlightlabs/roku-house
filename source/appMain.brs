@@ -234,6 +234,10 @@ Function GetSearchResults(query)
 
 End Function
 
+Function sortFunc(key)
+    return RegRead(key, "searches")
+End Function
+
 Function ShowSearch() As Integer
     port = CreateObject("roMessagePort")
     screen = CreateObject("roSearchScreen")
@@ -243,7 +247,7 @@ Function ShowSearch() As Integer
 
     history = CreateObject("roRegistrySection", "searches")
     recent_searches = history.GetKeyList()
-
+    ReverseSort(recent_searches, sortFunc)    
     if recent_searches.Count() <> 0
         'show recent searches on screen
         screen.SetSearchTerms(recent_searches)
@@ -266,7 +270,11 @@ Function ShowSearch() As Integer
             else if msg.isFullResult()
                 query = msg.GetMessage()
                 recent_searches.Push(query)
-                history.Write(query, query)
+                if history.Read(query) <> invalid
+                    history.Write(query, (history.Read(query).toInt() + 1).toStr() )
+                else
+                    history.Write(query, 1)
+                end if
                 history.Flush()
                 GetSearchResults(query)
 
@@ -371,7 +379,6 @@ Function ShowClipDetailScreen(clip, videoId)
                 elseif msg.GetIndex() = 2 then
                     print "vid length" 
                     print clip.VidLength
-                    print "offset"
                     print clip.StreamStartTimeOffset
 '                    if clip.VidLength <> invalid then
  '                      new_duration = clip.VidLength - clip.StreamStartTimeOffset
@@ -485,10 +492,7 @@ Function GetVideoItem(vid)
     o.Description = "HouseLive feed for " + desc
     o.ShortDescriptionLine1 = "Video Feed from the House Floor"
     o.ShortDescriptionLine2 = desc
-    print "type vid" + type(vid)
     clip_urls = vid.GetNamedElements("clip_urls")
-    print type(clip_urls)
-    print clip_urls.Count()
     if clip_urls.Count() > 0 then
         if clip_urls[0].GetNamedElements("mp4").Count() > 0 then
             mp4_url = clip_urls[0].GetNamedElements("mp4")[0].GetText()
@@ -505,12 +509,10 @@ Function GetVideoItem(vid)
     if hls_url <> "" then
         o.StreamUrls = [hls_url]
         o.StreamFormat = "hls"
-        print "hls url"
         print hls_url
     elseif mp4_url <> "" then
         o.StreamUrls = [mp4_url]
         o.StreamFormat = "mp4"
-        print "mp4 url"
         print mp4_url
     else
         return -1
@@ -579,16 +581,13 @@ Function GetDaysFeed(start_day, append, videos) As Dynamic
     feed = CreateObject("roAssociativeArray")
     feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=house&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.hls__exists=true"
     if start_day <> "" then
-        print "start_day in get days feed: " + start_day
         feed.url = feed.url + "&legislative_day__lt=" + start_day 
         
     endif 
 
     print feed.url
     http = NewHttp(feed.url)
-    print http
     response = http.GetToStringWithRetry()
-'    print response
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
        print "Can't parse feed"
