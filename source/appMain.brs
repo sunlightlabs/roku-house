@@ -77,8 +77,8 @@ Function ShowChambers()
     },
     {
         Title: "Search",
-        HDPosterUrl: "pkg:/images/category_poster_304x237_house.jpg",
-        SDPosterUrl: "pkg:/images/category_poster_304x237_house.jpg"
+        HDPosterUrl: "pkg:/images/category_poster_304x237_search.png",
+        SDPosterUrl: "pkg:/images/category_poster_304x237_search.png"
     }]
 
     screen = CreateObject("roPosterScreen")
@@ -94,10 +94,10 @@ Function ShowChambers()
         if type(msg) = "roPosterScreenEvent" then
             if msg.isListItemSelected() then
                 if msg.GetIndex() = 0 then
-                   ShowHouseVideos()
+                   ShowHouseVideos("house")
 
                 elseif msg.GetIndex() = 1 then
-                   ShowSenateMessage()
+                   ShowHouseVideos("senate")
 
                 elseif msg.GetIndex() = 2 then
                     ShowSearch()
@@ -145,7 +145,12 @@ Function ParseSearchResults(response, vids) as Dynamic
         
         o.Title = clip.legislative_day.GetText()
         o.Description = desc
-        o.ShortDescriptionLine1 = "HouseLive.gov - " + o.Title
+        if Instr(1, clip.video_id.GetText(), "house") then
+            o.ShortDescriptionLine1 = "HouseLive.gov - " + o.Title
+        else
+            o.ShortDescriptionLine1 = "Floor.Senate.gov - " + o.Title
+        end if
+        
         o.ShortDescriptionLine2 = title
  '       o.ParagraphText = desc
         o.StreamUrls = [clip.clip_urls.hls.GetText()]
@@ -288,10 +293,10 @@ Function ShowSearch() As Integer
 
 End Function 
 
-Function ShowHouseVideos() As Integer
+Function ShowHouseVideos(chamber) As Integer
     
     waitobj = ShowPleaseWait("Retrieving legislative days", "")
-    videos = GetDaysFeed("", false, CreateObject("roArray", 100, true))
+    videos = GetDaysFeed("", false, CreateObject("roArray", 100, true), chamber)
     video_count = str(videos.Count())
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
@@ -315,7 +320,7 @@ Function ShowHouseVideos() As Integer
                 screen.show()
                 if (video_count.ToInt() - msg.GetIndex() <= 8) and hasFailedOnce = false then
                     last_day = videos[video_count.ToInt() - 1].Title
-                    temp_videos = GetDaysFeed(last_day, true, videos)
+                    temp_videos = GetDaysFeed(last_day, true, videos, chamber)
                     if temp_videos = invalid then
                         return -1
                     endif
@@ -460,7 +465,7 @@ Function GetClipItem(clip, vid)
     desc = vid.Description
     o.Title = desc
     o.Description = events
-    o.ShortDescriptionLine1 = "HouseLive.gov Feed"
+    o.ShortDescriptionLine1 = o.Title
 '    o.ShortDescriptionLine2 = events
     o.StreamUrls = vid.StreamUrls
     o.StreamBitrates = [0]
@@ -489,8 +494,15 @@ Function GetVideoItem(vid)
     o = CreateObject("roAssociativeArray")
     desc = vid.GetNamedElements("legislative_day")[0].GetText()
     o.Title = desc
-    o.Description = "HouseLive feed for " + desc
-    o.ShortDescriptionLine1 = "Video Feed from the House Floor"
+
+    if Instr(1, vid.video_id.GetText(), "house") then
+        o.Description = "House floor feed for " + desc
+        o.ShortDescriptionLine1 = "Video Feed from the House Floor"
+    else
+        o.Description = "Senate floor feed for " + desc
+        o.ShortDescriptionLine1 = "Video Feed from the Senate Floor"
+    end if
+
     o.ShortDescriptionLine2 = desc
     clip_urls = vid.GetNamedElements("clip_urls")
     if clip_urls.Count() > 0 then
@@ -576,10 +588,10 @@ Function GetClipsFeed(vid) As Dynamic
 End Function
 
 
-Function GetDaysFeed(start_day, append, videos) As Dynamic
+Function GetDaysFeed(start_day, append, videos, chamber) As Dynamic
     
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=house&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.hls__exists=true"
+    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=" + chamber + "&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.hls__exists=true"
     if start_day <> "" then
         feed.url = feed.url + "&legislative_day__lt=" + start_day 
         
