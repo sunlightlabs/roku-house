@@ -121,11 +121,11 @@ End Function
 Function ParseSearchResults(response, vids) as Dynamic
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
-       print "Can't parse feed"
+       print "Can't parse feed -- search results"
        return vids
     endif
     
-    for each clip in xml.clips.clip
+    for each clip in xml.results.result
         o = { }
 'need to figure out how to show why this is in search results
 '        desc = vid.Description   
@@ -179,12 +179,12 @@ Function GetSearchResults(query)
     waitobj = ShowPleaseWait("Retrieving Search Results", "")
     per_page = 50
     page = 1
-    query = "http://api.realtimecongress.org/api/v1/search/clips.xml?apikey=" + GetKey() + "&query=" + HttpEncode(query) + "&sections=video_id,events,offset,duration,clip_urls,pubdate,legislative_day&highlight=true&order=pubdate&sort=desc&highlight_tags=**,**&per_page=50"
+    query = "http://congress.api.sunlightfoundation.com/clips/search?format=xml&apikey=" + GetKey() + "&query=" + HttpEncode(query) + "&fields=video_id,events,offset,duration,clip_urls,published_at,legislative_day&highlight=true&order=published_at__desc&highlight.tags=**,**&per_page=50"
     response = APICall(query)
     vids = CreateObject("roList")
     vids = ParseSearchResults(response, vids)
     if vids = invalid
-        print "can't parse feed"
+        print "can't parse feed--vids invalid"
         return -1
     end if
     video_count = str(vids.Count())
@@ -493,6 +493,7 @@ End Function
 Function GetVideoItem(vid)
     o = CreateObject("roAssociativeArray")
     desc = vid.GetNamedElements("legislative_day")[0].GetText()
+    print desc
     o.Title = desc
 
     if Instr(1, vid.video_id.GetText(), "house") then
@@ -552,14 +553,14 @@ Function GetClipsFeed(vid) As Dynamic
     clips = CreateObject("roArray", 100, true)
     video_id = vid.VideoId
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=1&apikey="+ GetKey() + "&sections=clips&video_id=" + video_id
+    feed.url = "http://congress.api.sunlightfoundation.com/videos?format=xml&per_page=1&apikey="+ GetKey() + "&fields=clips&video_id=" + video_id
     
     print feed.url
     http = NewHttp(feed.url)
     response = http.GetToStringWithRetry()
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
-       print "Can't parse feed"
+       print "Can't parse feed -- cant get clips"
        return invalid
     endif
 
@@ -573,12 +574,9 @@ Function GetClipsFeed(vid) As Dynamic
             ShowGenericErrorMessage("We're sorry; an error has occurred. Please try again later.") 
             return clips
     else
-        for each cl in xml.videos.video.clips.clip
-        'for each cl in xml.videos.video.clips.clip
-            'cl = xml.videos.video.clips.clip[count]
+        for each cl in xml.results.result
             o = GetClipItem(cl, vid)
             clips.Push(o)
-        'next
         end for
 
     endif
@@ -591,7 +589,7 @@ End Function
 Function GetDaysFeed(start_day, append, videos, chamber) As Dynamic
     
     feed = CreateObject("roAssociativeArray")
-    feed.url = "http://api.realtimecongress.org/api/v1/videos.xml?per_page=14&apikey=" + GetKey() + "&chamber=" + chamber + "&sections=duration,clip_id,clip_urls,legislator_names,video_id,pubdate,bills,legislative_day&order=legislative_day&sort=desc&clip_urls.hls__exists=true"
+    feed.url = "http://congress.api.sunlightfoundation.com/videos?format=xml&per_page=14&apikey=" + GetKey() + "&chamber=" + chamber + "&fields=duration,clip_id,clip_urls,legislator_names,video_id,published_at,bill_ids,legislative_day&order=legislative_day__desc&clip_urls.hls__exists=true"
     if start_day <> "" then
         feed.url = feed.url + "&legislative_day__lt=" + start_day 
         
@@ -602,22 +600,18 @@ Function GetDaysFeed(start_day, append, videos, chamber) As Dynamic
     response = http.GetToStringWithRetry()
     xml = CreateObject("roXMLElement")
     if not xml.Parse(response) then
-       print "Can't parse feed"
+       print "Can't parse feed-- days feed"
        ShowGenericErrorMessage("We're sorry; an error has occurred. Please try again later.") 
        return invalid
     endif
-
-    if xml.videos = invalid then
-        if xml.video then
-            print "has single vid"
-            videos.Push(GetVideoItem(xml.video))
-        else
-            print "Feed Empty or invalid"
-            return invalid
-        endif
+    print 'parsing results'
+    if xml.results = invalid then
+        print "Feed Empty or invalid"
+        return invalid
     else
-        for each vid in xml.videos.video
-            if vid.GetName() = "video" then
+        print 'looping'
+        for each vid in xml.results.result
+            if vid.GetName() = "result" then
                 o = GetVideoItem(vid)
                 if type(o) = "roAssociativeArray" then
                     videos.Push(o)
